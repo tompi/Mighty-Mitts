@@ -50,6 +50,25 @@
     return nil;
 }
 
+- (void)updateMenuButtonBorderColor {
+    // Follow the menu bar's text color, so the border is white on a dark menu bar and black on a light one.
+    // CGColor can't hold a dynamic color, so resolve it against the button's current appearance.
+    NSButton* button = self.menuIcon.button;
+    [button.effectiveAppearance performAsCurrentDrawingAppearance:^{
+        button.layer.borderColor = [[NSColor labelColor] CGColor];
+    }];
+}
+
+- (void)observeValueForKeyPath:(NSString*)keyPath ofObject:(id)object change:(NSDictionary*)change context:(void*)context {
+    if (object == self.menuIcon.button && [keyPath isEqualToString:@"effectiveAppearance"]) {
+        // The menu bar switched between light and dark (e.g. the wallpaper or system appearance changed)
+        [self updateMenuButtonBorderColor];
+    }
+    else {
+        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+    }
+}
+
 - (void)updateMenuButtonText {
     NSString* leftText = [NSString stringWithFormat:@"%i%%", self.leftKeyboardBatteryPercent];
     NSString* rightText = [NSString stringWithFormat:@"%i%%", self.rightKeyboardBatteryPercent];
@@ -70,7 +89,7 @@
     // PT: I've found in practice that I need to set up the border each time I  update the button's title.
     // I assume, but haven't confirmed, that reassigning the button's title creates an entirely new button.
     self.menuIcon.button.layer.borderWidth = 0.8;
-    self.menuIcon.button.layer.borderColor = [[NSColor blackColor] CGColor];
+    [self updateMenuButtonBorderColor];
     self.menuIcon.button.layer.cornerRadius = 4.0;
 }
 
@@ -270,6 +289,7 @@
     // Initialize the status bar icon
     self.menuIcon = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
     self.menuIcon.button.title = @"No keyboard selected.";
+    [self.menuIcon.button addObserver:self forKeyPath:@"effectiveAppearance" options:0 context:NULL];
     
     // Periodic job to refresh the UI / kick the tires
     self.updateTimer = [NSTimer timerWithTimeInterval:BATTERY_LEVEL_FETCH_INTERVAL_SECONDS repeats:YES block:^(NSTimer* timer){
